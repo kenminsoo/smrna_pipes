@@ -2,23 +2,22 @@ library("readr")
 library("BiocManager") #cite
 library("DESeq2") #cite
 library("ggplot2")
-library('openxlsx') 
-library('EnhancedVolcano')
-library('patchwork')
 library(dplyr)
 library(tibble)
 
 #compare generated files with the base truth
 
-base_truthdir <- "/home/kenmn/nfs_scratch/simulated_data_1/sim_counts_matrix.rda"
+base_truthdir <- "/home/kenmn/nfs_scratch/simulated_data_1/sim_counts_matrix.rda" # nolint
+experimental_data_dir <- "/home/kenmn/nfs_scratch/sim_results/"
 
-load(base_truthdir)
+featurecounts_comparison <- function(true_dir, prefix, pipeline, exp_data_dir) {
+
+load(true_dir)
 #loads in as counts_matrix
 
-pipe_data <- read_delim('/home/kenmn/nfs_scratch/simulated_data_1/counts_uni.tsv', delim = "\t",
-escape_double = FALSE, trim_ws = TRUE, skip = 1)
+pipe_data <- read_delim(paste(experimental_data_dir,pipeline,"/",prefix,"/",prefix,"-",pipeline,"-","counts.tsv",sep=""), delim = "\t",escape_double = FALSE, trim_ws = TRUE, skip = 1)
 
-#the seqs have additional source info, remove
+#the seqs might have additional source info, remove
 pipe_data$Geneid <- gsub("\\._.*","",pipe_data$Geneid)
 
 counts_matrix_df <- as.data.frame(counts_matrix)
@@ -54,3 +53,13 @@ for (i in 1:10) {
 
 #false positives
 fp_combined <- right_join(counts_rowcol, pipe_data, by = 'Geneid')
+fp_combined <- fp_combined[!complete.cases(fp_combined),]
+fp_combined <- fp_combined[ rowSums(fp_combined[17:26]) > 0,]
+
+write.csv(fp_combined, paste(prefix,pipeline,"fp.csv",sep="-"))
+write.csv(right_diff_per, paste(prefix,pipeline,'per-error.csv',sep="-"))
+write.csv(right_diff, paste(prefix,pipeline,'raw-error.csv',sep="-"))
+write.csv(combined_data, paste(prefix,pipeline,'raw-counts.csv',sep="-"))
+
+}
+#we will analyze the csv files at a later date
