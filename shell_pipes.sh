@@ -47,7 +47,7 @@ cd $dir
 for file in *.fasta
 do
     base=${file%.*}
-    seqtk seq -F "I" $file > $base".fastq"
+    seqtk seq -F "?" $file > $base".fastq"
 done
 
 #with the given reference 
@@ -185,4 +185,76 @@ mkdir $res_dir"/compsra/"$pre
 mv $res_dir/base-compsra-counts.* $res_dir"/compsra/"$pre
 
 #COMPSRA END
+###=======================###
+
+module purge
+conda deactivate
+
+###=======================###
+#ISPORTS1.1 START
+
+dir='/home/kenmn/nfs_scratch/simulated_data_1/'
+dir='/mnt/scratch/nfs_fs02/kenmn/simulated_data_1/'
+
+export PATH=$PATH:/home/kenmn/nfs_scratch/temp_pipes/sports1.1/source
+conda activate sports
+module load lang/R/4.1.2-foss-2021b 
+module load bio/Bowtie/1.2.2-foss-2018b
+module load bio/SRA-Toolkit/3.0.0-centos_linux64
+
+for f in *.fastq; do
+    echo $f >> samples.txt
+done
+
+sports.pl -i samples.txt -p $threads -g $dir"bowtie_index/hg38" -m $dir"Homo_sapiens/miRBase/21/miRBase_21-hsa" -r $dir"Homo_sapiens/rRNAdb/human_rRNA" -t $dir"Homo_sapiens/GtRNAdb/hg19/hg19-tRNAs" -w $dir"Homo_sapiens/piRBase/piR_human" -e $dir"Homo_sapiens/Ensembl/release-89/Homo_sapiens.GRCh38.ncrna" -f $dir"Homo_sapiens/Rfam/12.3/Rfam-12.3-human" -o ./sports_out/ -k 
+
+#ISPORTS1.1 END
+###=======================###
+
+###=======================###
+#ISRAP START - omit for now
+
+
+
+#ISRAP END
+###=======================###
+
+###=======================###
+#MANATEE START
+export PATH=$PATH:/home/kenmn/nfs_scratch/temp_pipes/Manatee
+
+#note error message regarding installation of set::intervaltrees current occurs will test by ignoring
+
+#be in manatee dir
+
+manatee -i /home/kenmn/nfs_scratch/simulated_data_1/fastq -o /home/kenmn/nfs_scratch/simulated_data_1/manatee_out4 -index /home/kenmn/nfs_scratch/simulated_data_1/bowtie_index/hg38 -genome /home/kenmn/bioinfo_tools/hg38/hg38.fasta -annotation /home/kenmn/bioinfo_tools/smrnaseq_annotation/human_allRNA.gtf -cores 2
+
+#MANATEE END
+###=======================###
+
+###=======================###
+#NEXTFLOW SMRNASEQ START
+
+gz_data="/home/kenmn/nfs_scratch/simulated_data_1/fastq_gz"
+
+touch samples.csv
+echo "sample,fastq_1" >> samples.csv
+
+for f in *.fastq.gz; do
+    base=${f%.*.*}
+    echo $base","$f >> samples.csv
+done
+
+module load tools/Singularity/3.8.5
+module load lang/Java/16.0.1
+export PATH=$PATH:/home/kenmn/bioinfo_tools/nextflow
+
+nextflow run nf-core/smrnaseq --input samples.csv --outdir . --genome GRCh38 -profile singularity --max_cpus 6
+#there is an issue where it cannot detect phred offset
+for f in *.fastq; do
+    sed '0,/?/s//#/' $f > "q"$f
+done
+
+#note we comment out the part that broke. let us see if it works
+#NEXTFLOW SMRNASEQ END
 ###=======================###

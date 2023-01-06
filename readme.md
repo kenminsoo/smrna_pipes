@@ -18,8 +18,9 @@ PER_ERROR = Percentage error for each read that was supposed to be in the datase
 RAW_COUNTS = Raw counts to generate regressions to evaluate performance
 RAW_ERROR = Raw difference between experimental and base truth
 
-# Scripts to create for the processing of files to allow for pipeline compatability
+# Scripts for the processing of files to allow for pipeline compatability
 
+None for now. See issues for goals. Completed scripts will be placed here with descriptions for use. 
 
 # Current List of Compounding Complexities:
 
@@ -40,6 +41,8 @@ Prefix:
 Aside Inquiry 1) Identify what transcripts were omitted from the ITAS annotation file that we use. Identify what snoRNAs, snRNAs, etc. were removed if any from our combined annotation file. Run literature review (basic search) on each to see how relevant they are and if real data is being missed out on. 
 
 Aside Inquiry 2) Identify embedded small RNAs (i.e. piRNA derived snoRNAs) and see how pipes respond when reads from both are generated. Try to identify if there is a good way to uniquely identify or predict the presence of one or the other. 
+
+Aside Inquiry 3) How well does the ratio-based normalization method work? 
 
 ## Addition of random error to the model 
 
