@@ -179,7 +179,42 @@ for (pipe in pipes){
 #Sensitivity and Precision Calculation
 #14000 "right answers"
 
+#create dir if does not exist
+organ_base <- paste("mkdir -p results/", trial, "/", sep = "")
+organ_base_dir <- paste("results/", trial, "/", sep = "")
+
+system("mkdir -p results")
+
+for (pipe in pipes){
+    system(paste(organ_base, pipe, sep = ""))
+    #will hold pdfs 
+    system(paste(organ_base, pipe, "/", "overall", sep = ""))
+    #will hold folders of biotypes, which hold pdfs
+    system(paste(organ_base, pipe, "/", "biotypes", sep = ""))
+
+    for (biotype in bio_types){
+            system(paste(organ_base, pipe, "/", "biotypes",
+            "/", biotype, sep = ""))
+    }
+}
+
+#make empty csv files for sensitivity and precision + percent error calculations
+calc_base <- paste("touch -p results/", trial, "/", sep = "")
+calc_base_dir <- paste("results/", trial, "/", sep = "")
+
+for (pipe in pipes){
+    #will hold overall metrics
+    system(paste(calc_base, pipe, "/", "overall", "/", pipe,
+    "_calculated.csv", sep = ""))
+
+    for (biotype in bio_types){
+            system(paste(calc_base, pipe, "/", "biotypes", "/", biotype,
+            "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+    }
+}
+
 #sensitivity 
+
 for (pipe in pipes){
 
     #turn data loooong
@@ -192,32 +227,35 @@ for (pipe in pipes){
     colnames(tru_exp_df) <- c("geneid", "tru_sample",
     "tru_value", "exp_sample", "exp_value")
 
+    false_neg <- colSums(tru_exp_df["exp_value"] == 0)
+    true_pos <- colSums(tru_exp_df["exp_value"] != 0)
+
+    sensitivity <- ((true_pos) / (true_pos + false_neg))
+
+    #enter data into csv
+
+    system(paste("echo ", "sensitivity", ",", sensitivity, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
 
 #make biotype calculations
     for (biotype in bio_types){
-        biotype_truth <- melt(separated[[pipe]][[biotype]][2:(samples + 2)])
-        biotype_exp <- melt(separated[[pipe]][[biotype]]
+        biotype_truth_df <- melt(separated[[pipe]][[biotype]][2:(samples + 2)])
+        biotype_exp_df <- melt(separated[[pipe]][[biotype]]
         [(samples + 8):(samples + 7 + samples)])
 
 #add names
-        biotype_df <- cbind(biotype_truth, biotype_exp)
+        biotype_df <- cbind(biotype_truth_df, biotype_exp_df)
         colnames(biotype_df) <- c("geneid", "tru_sample",
         "tru_value", "exp_sample", "exp_value")
-#log transform
-        biotype_df$tru_value <- log2(biotype_df$tru_value + 1)
-        biotype_df$exp_value <- log2(biotype_df$exp_value + 1)
 
-        biotype_plot <- ggplot(biotype_df, aes(x = tru_value, y = exp_value)) + 
-        geom_point() +
-        stat_poly_line() +
-        stat_poly_eq() +
-        labs(x = "log2(Ground Truth Counts + 1)",
-        y = paste(pipe, "log2(Experimental Counts)"),
-        title = paste("Overall Experimental vs. Truth for", pipe, biotype))
+        false_neg <- colSums(biotype_df["exp_value"] == 0)
+        true_pos <- colSums(biotype_df["exp_value"] != 0)
 
-         ggsave(paste(organ_base_dir, pipe, "/biotypes/",
-         biotype, "/", pipe, "_", trial, "_", biotype,
-        "_overall_linear", ".pdf", sep = ""), plot = biotype_plot)
+        sensitivity <- ((true_pos) / (true_pos + false_neg))
+
+        system(paste("echo ", "sensitivity", ",", sensitivity, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
     }
 }
 
