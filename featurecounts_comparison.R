@@ -10,8 +10,8 @@
 #Linear regression of ground truth with experimental.
 #Sensitivity = TP / TP + FN # nolint
 
-#if read found, it will be counted as TP 
-#if read not found, it will be counted as FN (i.e. error >95%)
+#if read found, it will be counted as TP
+#if read not found, it will be counted as FN
 
 #Precision = TP / FP + TP # nolint
 
@@ -49,6 +49,8 @@ samples <- 10
 n <- 1
 
 separated <- list()
+fp_separated <- list()
+per_separated <- list()
 
 bio_types <- list("5S", "rRNA", "miR", "piR", "tRNA")
 
@@ -70,17 +72,24 @@ for (pipe in pipes){
     #separted data by biotypes
 
     separated[[pipe]] <- list()
+    fp_separated[[pipe]] <- list()
+    per_separated[[pipe]] <- list()
     for (biotype in bio_types){
         separated[[pipe]][[biotype]] <- (data[[pipe]][[1]] %>%
         filter(str_detect(Geneid, biotype)))
+
+        fp_separated[[pipe]][[biotype]] <- (data[[pipe]][[3]] %>%
+        filter(str_detect(Geneid, biotype)))
+
+        per_separated[[pipe]][[biotype]] <- (data[[pipe]][[2]] %>%
+        filter(str_detect(X1, biotype)))
     }
 }
 
-
 #subset the raw counts into different biotypes
 #This subset method will only work for the first round of simulated data
-#in the future let us keep the database source in synthetic data in order to have biotypes
-
+#in the future let us keep the database source
+#in synthetic data in order to have biotypes
 
 #============#
 
@@ -199,7 +208,8 @@ for (pipe in pipes){
 }
 
 #make empty csv files for sensitivity and precision + percent error calculations
-calc_base <- paste("touch -p results/", trial, "/", sep = "")
+#this isn't actually necessary
+calc_base <- paste("touch results/", trial, "/", sep = "")
 calc_base_dir <- paste("results/", trial, "/", sep = "")
 
 for (pipe in pipes){
@@ -213,7 +223,7 @@ for (pipe in pipes){
     }
 }
 
-#sensitivity 
+#sensitivity and precision and average percent error
 
 for (pipe in pipes){
 
@@ -232,10 +242,47 @@ for (pipe in pipes){
 
     sensitivity <- ((true_pos) / (true_pos + false_neg))
 
+    #precision
+    fp_df <- melt(data[[pipe]][[3]][(samples + 8):(samples + 7 + samples)])
+    false_pos <- colSums(fp_df["value"] != 0) 
+
+    precision <- ((true_pos) / (false_pos + true_pos))
+
+    #percent error
+    per_df <- melt(data[[pipe]][[2]][2:(samples + 2)])
+    per_df_non_zero <- per_df[3][per_df[3] != 0]
+    per_avg0_pos <- mean(per_df_non_zero[per_df_non_zero > 0])
+    per_sd0_pos <- sd(per_df_non_zero[per_df_non_zero > 0])
+    per_avg0_neg <- mean(per_df_non_zero[per_df_non_zero < 0])
+    per_sd0_neg <- sd(per_df_non_zero[per_df_non_zero < 0])
+    per_avg <- mean(per_df[[3]])
+    per_sd <- sd(per_df[[3]])
     #enter data into csv
 
-    system(paste("echo ", "sensitivity", ",", sensitivity, " >>", " ",
+    system(paste("echo ", "sensitivity", ",", sensitivity, " >", " ",
     organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "precison", ",", precision, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "overall_error", ",", per_avg, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "overall_sd", ",", per_sd, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "pos_error", ",", per_avg0_pos, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "pos_sd", ",", per_sd0_pos, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "neg_error", ",", per_avg0_neg, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    system(paste("echo ", "neg_sd", ",", per_sd0_neg, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
 
 #make biotype calculations
     for (biotype in bio_types){
@@ -253,10 +300,59 @@ for (pipe in pipes){
 
         sensitivity <- ((true_pos) / (true_pos + false_neg))
 
-        system(paste("echo ", "sensitivity", ",", sensitivity, " >>", " ",
+        #precision
+
+        fp_df <- melt(fp_separated[[pipe]][[biotype]]
+        [(samples + 8):(samples + 7 + samples)])
+        false_pos <- colSums(fp_df["value"] != 0)
+
+        precison <- ((true_pos) / (false_pos + true_pos))
+
+        #percent error
+        per_df <- melt(per_separated[[pipe]][[biotype]][2:(samples + 2)])
+        per_df_non_zero <- per_df[3][per_df[3] != 0]
+        per_avg0_pos <- mean(per_df_non_zero[per_df_non_zero > 0])
+        per_sd0_pos <- sd(per_df_non_zero[per_df_non_zero > 0])
+        per_avg0_neg <- mean(per_df_non_zero[per_df_non_zero < 0])
+        per_sd0_neg <- sd(per_df_non_zero[per_df_non_zero < 0])
+        per_avg <- mean(per_df[[3]])
+        per_sd <- sd(per_df[[3]])
+
+        system(paste("echo ", "sensitivity", ",", sensitivity, " >", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "precision", ",", precision, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "overall_error", ",", per_avg, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "overall_sd", ",", per_sd, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "pos_error", ",", per_avg0_pos, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "pos_sd", ",", per_sd0_pos, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "neg_error", ",", per_avg0_neg, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "neg_sd", ",", per_sd0_neg, " >>", " ",
         organ_base_dir, pipe, "/", "biotypes", "/", biotype,
         "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
     }
 }
+
+
+#make graphs that show biotype and pipeline specific metrics
 
 #============#
