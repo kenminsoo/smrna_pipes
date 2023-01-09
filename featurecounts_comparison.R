@@ -30,6 +30,10 @@ library(dplyr)
 library(reshape2)
 library(ggpmisc)
 library(plyr)
+library(ggplot2)
+library(viridis)
+library(hrbrthemes)
+library(ggsci)
 
 #============#
 #import data, assuming running locally on computer
@@ -225,6 +229,9 @@ for (pipe in pipes){
 
 #sensitivity and precision and average percent error
 
+system(paste("echo ", "measurement, value, pipeline, biotype", ">", " ",
+organ_base_dir, "biotype_calculated.csv", sep = ""))
+
 for (pipe in pipes){
 
     #turn data loooong
@@ -253,16 +260,17 @@ for (pipe in pipes){
     per_df_non_zero <- per_df[3][per_df[3] != 0]
     per_avg0_pos <- mean(per_df_non_zero[per_df_non_zero > 0])
     per_sd0_pos <- sd(per_df_non_zero[per_df_non_zero > 0])
-    per_avg0_neg <- mean(per_df_non_zero[per_df_non_zero < 0])
-    per_sd0_neg <- sd(per_df_non_zero[per_df_non_zero < 0])
+    per_avg0_neg <- mean(per_df_non_zero[per_df_non_zero < 0 & per_df_non_zero != 0])
+    per_sd0_neg <- sd(per_df_non_zero[per_df_non_zero < 0 & per_df_non_zero != 0])
     per_avg <- mean(per_df[[3]])
     per_sd <- sd(per_df[[3]])
+    f_measure <- (2 * (precision * sensitivity)) / (precision + sensitivity)
     #enter data into csv
 
     system(paste("echo ", "sensitivity", ",", sensitivity, " >", " ",
     organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
 
-    system(paste("echo ", "precison", ",", precision, " >>", " ",
+    system(paste("echo ", "precision", ",", precision, " >>", " ",
     organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
 
     system(paste("echo ", "overall_error", ",", per_avg, " >>", " ",
@@ -283,6 +291,46 @@ for (pipe in pipes){
     system(paste("echo ", "neg_sd", ",", per_sd0_neg, " >>", " ",
     organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
 
+    system(paste("echo ", "f_measure", ",", f_measure, " >>", " ",
+    organ_base_dir, pipe, "/overall/", pipe, "_calculated.csv", sep = ""))
+
+    #enter into the big csv
+
+    system(paste("echo ", "sensitivity", ",", sensitivity, 
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "precision", ",", precision, 
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "overall_error", ",", per_avg,
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "overall_sd", ",", per_sd,
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "pos_error", ",", per_avg0_pos, 
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "pos_sd", ",", per_sd0_pos,
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "neg_error", ",", per_avg0_neg,
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "neg_sd", ",", per_sd0_neg,
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+    system(paste("echo ", "f_measure", ",", f_measure,
+    ",", pipe, ",overall", " >>", " ",
+    organ_base_dir, "biotype_calculated.csv", sep = ""))
 
 #make biotype calculations
     for (biotype in bio_types){
@@ -300,23 +348,26 @@ for (pipe in pipes){
 
         sensitivity <- ((true_pos) / (true_pos + false_neg))
 
+        print(biotype)
+        print(true_pos/10)
         #precision
 
         fp_df <- melt(fp_separated[[pipe]][[biotype]]
         [(samples + 8):(samples + 7 + samples)])
         false_pos <- colSums(fp_df["value"] != 0)
 
-        precison <- ((true_pos) / (false_pos + true_pos))
+        precision <- ((true_pos) / (false_pos + true_pos))
 
         #percent error
         per_df <- melt(per_separated[[pipe]][[biotype]][2:(samples + 2)])
         per_df_non_zero <- per_df[3][per_df[3] != 0]
         per_avg0_pos <- mean(per_df_non_zero[per_df_non_zero > 0])
         per_sd0_pos <- sd(per_df_non_zero[per_df_non_zero > 0])
-        per_avg0_neg <- mean(per_df_non_zero[per_df_non_zero < 0])
-        per_sd0_neg <- sd(per_df_non_zero[per_df_non_zero < 0])
+        per_avg0_neg <- mean(per_df_non_zero[per_df_non_zero < 0 & per_df_non_zero != -1])
+        per_sd0_neg <- sd(per_df_non_zero[per_df_non_zero < 0 & per_df_non_zero != -1])
         per_avg <- mean(per_df[[3]])
         per_sd <- sd(per_df[[3]])
+        f_measure <- (2 * (precision * sensitivity)) / (precision + sensitivity)
 
         system(paste("echo ", "sensitivity", ",", sensitivity, " >", " ",
         organ_base_dir, pipe, "/", "biotypes", "/", biotype,
@@ -349,10 +400,108 @@ for (pipe in pipes){
         system(paste("echo ", "neg_sd", ",", per_sd0_neg, " >>", " ",
         organ_base_dir, pipe, "/", "biotypes", "/", biotype,
         "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+        system(paste("echo ", "f_measure", ",", f_measure, " >>", " ",
+        organ_base_dir, pipe, "/", "biotypes", "/", biotype,
+        "/", pipe, "_", biotype, "_", "_calculated.csv", sep = ""))
+
+#write to a csv file for all pipes for easy analysis
+
+        system(paste("echo ", "sensitivity", ",", 
+        sensitivity, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "precision", ",", 
+        precision, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "overall_error", ",", per_avg, 
+        ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "overall_sd", ",", 
+        per_sd, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "pos_error", ",", 
+        per_avg0_pos, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "pos_sd", ",", 
+        per_sd0_pos, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "neg_error", ",", 
+        per_avg0_neg, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "neg_sd", ",", 
+        per_sd0_neg, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
+
+        system(paste("echo ", "f_measure", ",", 
+        f_measure, ",", pipe, ",", biotype, " >>", " ",
+        organ_base_dir, "biotype_calculated.csv", sep = ""))
     }
 }
 
-
 #make graphs that show biotype and pipeline specific metrics
+#import biotype calculated csv
+
+metrics_df <- read.csv(paste(organ_base_dir, 
+"biotype_calculated.csv", sep = ""))
+
+measurement_list <- unique(metrics_df[1])
+measurement_list <- list(measurement_list)
+measurement_list <- unlist(measurement_list)
+
+#we will have each be made into bar graph, with %error, and sd
+n <- 1
+for (metric in measurement_list) {
+
+    if (grepl("error", metric)) {
+        sd <- measurement_list[n + 1]
+
+        filtered_dataset <- metrics_df %>% filter(str_detect(measurement, metric))
+        sd_val <- metrics_df %>% filter(str_detect(measurement, sd))
+
+        colnames(sd_val) <- c("measurement", "sd", "pipeline", "biotype")
+
+        combined <- cbind(filtered_dataset, sd_val["sd"])
+
+        metrics_plot <- ggplot(combined, aes(fill = biotype, 
+        x = measurement, y = value)) +
+        geom_bar(position = "dodge", stat = "identity") +
+        ggtitle(paste("Pipeline ", metric, " for Different Biotypes", sep = "")) +
+        facet_wrap(~pipeline) +
+        ylab(metric) +
+        scale_fill_jama()
+
+        ggsave(paste(organ_base_dir, "overall_",
+        metric, ".pdf", sep = ""), plot = metrics_plot)
+
+    
+
+    } else if (grepl("sd", metric)) {
+        
+        next
+
+    } else {
+    filtered_dataset <- metrics_df %>% filter(str_detect(measurement, metric))
+
+    metrics_plot <- ggplot(filtered_dataset, aes(fill = biotype, 
+    x = measurement, y = value)) +
+    geom_bar(position = "dodge", stat = "identity") +
+    ggtitle(paste("Pipeline ", metric, " for Different Biotypes", sep = "")) +
+    facet_wrap(~pipeline) +
+    ylab(metric) +
+    scale_fill_jama()
+
+    ggsave(paste(organ_base_dir, "overall_", 
+    metric, ".pdf", sep = ""), plot = metrics_plot)
+    }
+
+    n <- n + 1
+}
 
 #============#
